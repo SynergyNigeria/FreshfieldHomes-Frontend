@@ -1,0 +1,7 @@
+name = "freshfields-home"
+pages_build_output_dir = ".open-next/assets"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+NEXT_PUBLIC_API_BASE_URL = "https://freshfieldhomes.pythonanywhere.com/api"

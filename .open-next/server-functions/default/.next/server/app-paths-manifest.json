@@ -1,0 +1,15 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/about/page": "app/about/page.js",
+  "/agent-portal/page": "app/agent-portal/page.js",
+  "/chat/page": "app/chat/page.js",
+  "/contact/page": "app/contact/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/listings/[id]/page": "app/listings/[id]/page.js",
+  "/listings/page": "app/listings/page.js",
+  "/owner-admin/page": "app/owner-admin/page.js",
+  "/page": "app/page.js",
+  "/partial-homes/[id]/page": "app/partial-homes/[id]/page.js",
+  "/partial-homes/page": "app/partial-homes/page.js"
+}

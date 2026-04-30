@@ -1,0 +1,15 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/about/page": "/about",
+  "/agent-portal/page": "/agent-portal",
+  "/chat/page": "/chat",
+  "/contact/page": "/contact",
+  "/favicon.ico/route": "/favicon.ico",
+  "/listings/[id]/page": "/listings/[id]",
+  "/listings/page": "/listings",
+  "/owner-admin/page": "/owner-admin",
+  "/page": "/",
+  "/partial-homes/[id]/page": "/partial-homes/[id]",
+  "/partial-homes/page": "/partial-homes"
+}
