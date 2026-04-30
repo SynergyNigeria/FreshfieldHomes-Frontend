@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "cf:build": "npx @opennextjs/cloudflare build",
-    "cf:deploy": "npm run cf:build && npx wrangler pages deploy .open-next/assets --project-name freshfields-home --branch main",
+    "cf:deploy": "npm run cf:build && npx wrangler deploy",
     "start": "next start",
     "lint": "eslint"
   },
