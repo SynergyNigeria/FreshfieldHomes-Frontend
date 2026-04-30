@@ -100,6 +100,14 @@ interface ChatInquiryItem {
   created_at: string;
 }
 
+interface CloudinarySignature {
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  timestamp: number;
+  signature: string;
+}
+
 interface AgentFormState {
   id: string;
   name: string;
@@ -447,14 +455,53 @@ export default function OwnerAdminPage() {
   }
 
   async function uploadImages(files: File[]): Promise<string[]> {
-    const formData = new FormData();
-    files.forEach((f) => formData.append("images", f));
-    const result = await apiRequest<{ urls: string[] }>(
-      "/upload-images/",
-      { method: "POST", body: formData },
+    if (!ownerCode) {
+      throw new Error("Owner admin code is required.");
+    }
+
+    const signed = await apiRequest<CloudinarySignature>(
+      "/cloudinary-upload-signature/",
+      { method: "POST" },
       ownerCode,
     );
-    return result.urls;
+
+    const urls: string[] = [];
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("api_key", signed.apiKey);
+      formData.append("timestamp", String(signed.timestamp));
+      formData.append("signature", signed.signature);
+      formData.append("folder", signed.folder);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${signed.cloudName}/image/upload`,
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = (await response.json()) as {
+        secure_url?: string;
+        url?: string;
+        error?: { message?: string };
+      };
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || "Cloudinary upload failed.");
+      }
+
+      const uploadedUrl = data.secure_url || data.url;
+      if (!uploadedUrl) {
+        throw new Error("Cloudinary response missing uploaded URL.");
+      }
+
+      urls.push(uploadedUrl);
+    }
+
+    return urls;
   }
 
   function selectAgent(agent: AgentItem) {
