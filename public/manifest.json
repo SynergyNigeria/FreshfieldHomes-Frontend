@@ -1,0 +1,29 @@
+{
+  "name": "Fresh Fields Homes",
+  "short_name": "Fresh Fields",
+  "description": "Browse beautiful homes for sale. Find your perfect family home.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#166534",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Agent Portal",
+      "short_name": "Agents",
+      "url": "/agent-portal",
+      "description": "Access the agent portal"
+    },
+    {
+      "name": "Owner Admin",
+      "short_name": "Admin",
+      "url": "/owner-admin",
+      "description": "Access the admin panel"
+    }
+  ]
+}
