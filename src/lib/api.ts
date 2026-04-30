@@ -19,9 +19,19 @@ function toNumber(value: number | string): number {
 }
 
 function normalizeProperty(input: Property & { price: number | string }): Property {
+  const imageFromList = Array.isArray(input.images) ? input.images[0] : undefined;
+  const primaryImage = input.image || imageFromList || "";
+  const normalizedImages = Array.isArray(input.images)
+    ? input.images
+    : primaryImage
+      ? [primaryImage]
+      : [];
+
   return {
     ...input,
     price: toNumber(input.price),
+    image: primaryImage,
+    images: normalizedImages,
   };
 }
 
@@ -33,11 +43,21 @@ function normalizePartialHome(
     payer?: PartialPayer & { amountPaid: number | string };
   },
 ): PartialHome {
+  const imageFromList = Array.isArray(input.images) ? input.images[0] : undefined;
+  const primaryImage = input.image || imageFromList || "";
+  const normalizedImages = Array.isArray(input.images)
+    ? input.images
+    : primaryImage
+      ? [primaryImage]
+      : [];
+
   return {
     ...input,
     fullPrice: toNumber(input.fullPrice),
     amountPaid: toNumber(input.amountPaid),
     remainingAmount: toNumber(input.remainingAmount),
+    image: primaryImage,
+    images: normalizedImages,
     payer: input.payer
       ? {
           ...input.payer,
