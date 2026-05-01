@@ -5,7 +5,6 @@ import PropertyCard from "@/components/PropertyCard";
 import PartialPayCard from "@/components/PartialPayCard";
 import ShuffledGrid from "@/components/ShuffledGrid";
 import { getFeaturedProperties, getPartialHomes } from "@/lib/api";
-import type { Property, PartialHome } from "@/lib/api";
 
 export default async function Home() {
   const [featured, partialHomes] = await Promise.all([
@@ -86,7 +85,7 @@ export default async function Home() {
             Featured Properties
           </h2>
         </div>
-        <ShuffledGrid<Property>
+        <ShuffledGrid
           items={featured}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
           renderItem={(property) => (
@@ -129,7 +128,7 @@ export default async function Home() {
             </Link>
           </div>
 
-          <ShuffledGrid<PartialHome>
+          <ShuffledGrid
             items={partialHomes}
             limit={4}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
