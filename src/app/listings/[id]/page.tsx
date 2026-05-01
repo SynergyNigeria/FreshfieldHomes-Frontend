@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import FeatherIcon from "feather-icons-react";
 import { getProperties, getPropertyById } from "@/lib/api";
 import { formatPrice } from "@/lib/data";
+import PhotoGallery from "@/components/PhotoGallery";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -29,46 +30,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       {/* Image Gallery */}
       <section className="bg-beige-light">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="md:hidden">
-            <div className="flex gap-3 overflow-x-auto snap-x snap-mandatory pb-2">
-              {property.images.map((img, i) => (
-                <div key={img + i} className="relative h-72 min-w-full overflow-hidden snap-center">
-                  <Image
-                    src={img}
-                    alt={`${property.title} - ${i + 1}`}
-                    fill
-                    className="object-cover"
-                    priority={i === 0}
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-xs text-muted">Swipe to view all photos</p>
-          </div>
-
-          <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-4 h-[500px]">
-            <div className="md:col-span-2 relative overflow-hidden">
-              <Image
-                src={property.images[0]}
-                alt={property.title}
-                fill
-                className="object-cover"
-                priority
-              />
-            </div>
-            <div className="hidden md:grid grid-rows-2 gap-4">
-              {property.images.slice(1, 3).map((img, i) => (
-                <div key={i} className="relative overflow-hidden">
-                  <Image
-                    src={img}
-                    alt={`${property.title} - ${i + 2}`}
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <PhotoGallery images={property.images} title={property.title} />
         </div>
       </section>
 
