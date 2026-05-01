@@ -4,7 +4,7 @@ import FeatherIcon from "feather-icons-react";
 import { getAgents } from "@/lib/api";
 
 export default async function AboutPage() {
-  const agents = await getAgents();
+  const agents = await getAgents().catch(() => []);
 
   return (
     <>

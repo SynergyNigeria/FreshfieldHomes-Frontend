@@ -8,8 +8,8 @@ import { getFeaturedProperties, getPartialHomes } from "@/lib/api";
 
 export default async function Home() {
   const [featured, partialHomes] = await Promise.all([
-    getFeaturedProperties(),
-    getPartialHomes(),
+    getFeaturedProperties().catch(() => []),
+    getPartialHomes().catch(() => []),
   ]);
 
   return (

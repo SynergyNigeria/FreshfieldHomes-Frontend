@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function PartialHomesPage() {
-  const partialHomes = await getPartialHomes();
+  const partialHomes = await getPartialHomes().catch(() => []);
 
   return (
     <>
