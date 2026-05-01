@@ -1,9 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import FeatherIcon from "feather-icons-react";
-import PropertyCard from "@/components/PropertyCard";
-import PartialPayCard from "@/components/PartialPayCard";
-import ShuffledGrid from "@/components/ShuffledGrid";
+import { ShuffledPropertiesGrid, ShuffledPartialHomesGrid } from "@/components/ShuffledGrid";
 import { getFeaturedProperties, getPartialHomes } from "@/lib/api";
 
 export default async function Home() {
@@ -85,12 +83,9 @@ export default async function Home() {
             Featured Properties
           </h2>
         </div>
-        <ShuffledGrid
+        <ShuffledPropertiesGrid
           items={featured}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          renderItem={(property) => (
-            <PropertyCard key={property.id} property={property} />
-          )}
         />
         <div className="text-center mt-12">
           <Link
@@ -128,13 +123,10 @@ export default async function Home() {
             </Link>
           </div>
 
-          <ShuffledGrid
+          <ShuffledPartialHomesGrid
             items={partialHomes}
             limit={4}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-            renderItem={(home) => (
-              <PartialPayCard key={home.id} home={home} />
-            )}
           />
         </div>
       </section>

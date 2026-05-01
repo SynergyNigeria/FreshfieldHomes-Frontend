@@ -1,13 +1,9 @@
 "use client";
 
-import { useMemo, ReactNode } from "react";
-
-interface Props<T> {
-  items: T[];
-  limit?: number;
-  renderItem: (item: T) => ReactNode;
-  className?: string;
-}
+import { useMemo } from "react";
+import PropertyCard from "@/components/PropertyCard";
+import PartialPayCard from "@/components/PartialPayCard";
+import type { Property, PartialHome } from "@/lib/types";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -18,16 +14,41 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export default function ShuffledGrid<T>({
+export function ShuffledPropertiesGrid({
+  items,
+  className,
+}: {
+  items: Property[];
+  className?: string;
+}) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shuffled = useMemo(() => shuffle(items), []);
+  return (
+    <div className={className}>
+      {shuffled.map((p) => (
+        <PropertyCard key={p.id} property={p} />
+      ))}
+    </div>
+  );
+}
+
+export function ShuffledPartialHomesGrid({
   items,
   limit,
-  renderItem,
   className,
-}: Props<T>) {
-  // useMemo with no deps runs once per mount → random order per page load, stable during the session
+}: {
+  items: PartialHome[];
+  limit?: number;
+  className?: string;
+}) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const shuffled = useMemo(() => shuffle(items), []);
   const displayed = limit !== undefined ? shuffled.slice(0, limit) : shuffled;
-
-  return <div className={className}>{displayed.map(renderItem)}</div>;
+  return (
+    <div className={className}>
+      {displayed.map((h) => (
+        <PartialPayCard key={h.id} home={h} />
+      ))}
+    </div>
+  );
 }
