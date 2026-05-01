@@ -75,16 +75,8 @@ export default function Footer() {
             </h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-3 text-sm text-white/60">
-                <FeatherIcon icon="map-pin" size={16} className="text-beige" />
-                123 Real Estate Blvd, Austin, TX
-              </li>
-              <li className="flex items-center gap-3 text-sm text-white/60">
-                <FeatherIcon icon="phone" size={16} className="text-beige" />
-                (555) 000-1234
-              </li>
-              <li className="flex items-center gap-3 text-sm text-white/60">
                 <FeatherIcon icon="mail" size={16} className="text-beige" />
-                hello@freshfieldshomes.com
+                help@freshfieldsince.com
               </li>
             </ul>
             {/* Social */}
