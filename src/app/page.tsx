@@ -3,7 +3,9 @@ import Image from "next/image";
 import FeatherIcon from "feather-icons-react";
 import PropertyCard from "@/components/PropertyCard";
 import PartialPayCard from "@/components/PartialPayCard";
+import ShuffledGrid from "@/components/ShuffledGrid";
 import { getFeaturedProperties, getPartialHomes } from "@/lib/api";
+import type { Property, PartialHome } from "@/lib/api";
 
 export default async function Home() {
   const [featured, partialHomes] = await Promise.all([
@@ -84,11 +86,13 @@ export default async function Home() {
             Featured Properties
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {featured.map((property) => (
+        <ShuffledGrid<Property>
+          items={featured}
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+          renderItem={(property) => (
             <PropertyCard key={property.id} property={property} />
-          ))}
-        </div>
+          )}
+        />
         <div className="text-center mt-12">
           <Link
             href="/listings"
@@ -125,11 +129,14 @@ export default async function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {partialHomes.slice(0, 4).map((home) => (
+          <ShuffledGrid<PartialHome>
+            items={partialHomes}
+            limit={4}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            renderItem={(home) => (
               <PartialPayCard key={home.id} home={home} />
-            ))}
-          </div>
+            )}
+          />
         </div>
       </section>
 
