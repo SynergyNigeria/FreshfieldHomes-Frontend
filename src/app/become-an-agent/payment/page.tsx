@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import FeatherIcon from "feather-icons-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api";
-const PAYSTACK_PUBLIC_KEY = "pk_test_123d132d98faf5a7cf93747861caaffc33d7f840";
+const PAYSTACK_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY ?? "";
 
 // Extend Window to include PaystackPop injected by the inline script
 declare global {
