@@ -35,8 +35,6 @@ function PaymentForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [agentCode, setAgentCode] = useState("");
-  const [ngnAmount, setNgnAmount] = useState<number | null>(null);
-
   // Load Paystack inline script once
   const scriptLoaded = useRef(false);
   useEffect(() => {
@@ -114,7 +112,6 @@ function PaymentForm() {
       });
       const initData = (await initRes.json()) as {
         amount_kobo?: number;
-        ngn_rate?: number;
         detail?: string;
       };
 
@@ -124,7 +121,6 @@ function PaymentForm() {
       }
 
       const { amount_kobo } = initData;
-      setNgnAmount(amount_kobo ? amount_kobo / 100 : null);
 
       if (!window.PaystackPop) {
         setError("Paystack script has not loaded yet. Please wait a moment and try again.");
@@ -190,9 +186,7 @@ function PaymentForm() {
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">Registration Fee</p>
           <p className="text-2xl font-bold text-accent">$25.00</p>
-          {ngnAmount !== null && (
-            <p className="text-xs text-muted mt-0.5">â‰ˆ â‚¦{ngnAmount.toLocaleString()} at today's rate</p>
-          )}
+
         </div>
         <FeatherIcon icon="shield" size={28} className="text-accent opacity-40" />
       </div>
