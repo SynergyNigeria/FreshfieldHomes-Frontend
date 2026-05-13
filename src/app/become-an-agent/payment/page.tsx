@@ -104,7 +104,7 @@ function PaymentForm() {
 
       const token = statusData.payment_token;
 
-      // Initialize Paystack transaction on the backend (converts $25 â†’ NGN kobo)
+      // Initialize Paystack transaction on the backend (converts $25 to NGN kobo)
       const initRes = await fetch(`${API_BASE}/agent-applications/initialize-payment/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,7 +164,7 @@ function PaymentForm() {
               Your Agent Code
             </p>
             <p className="text-2xl font-bold text-accent tracking-widest">{agentCode}</p>
-            <p className="text-xs text-muted mt-1">Keep this safe â€” you'll use it to log in.</p>
+            <p className="text-xs text-muted mt-1">Keep this safe - you'll use it to log in.</p>
           </div>
         )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -220,7 +220,7 @@ function PaymentForm() {
         {initializing || processing ? (
           <>
             <FeatherIcon icon="loader" size={16} className="animate-spin" />
-            {initializing ? "Preparing paymentâ€¦" : "Verifying paymentâ€¦"}
+            {initializing ? "Preparing payment..." : "Verifying payment..."}
           </>
         ) : (
           <>
@@ -232,7 +232,7 @@ function PaymentForm() {
 
       <p className="text-xs text-muted text-center flex items-center justify-center gap-1.5">
         <FeatherIcon icon="lock" size={12} />
-        Secured by Paystack â€” â‚¦ equivalent charged at live exchange rate
+        Secured by Paystack - payments are encrypted and secure
       </p>
     </form>
   );
