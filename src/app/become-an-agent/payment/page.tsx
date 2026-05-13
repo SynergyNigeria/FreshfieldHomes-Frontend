@@ -1,11 +1,28 @@
-"use client";
+﻿"use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import FeatherIcon from "feather-icons-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api";
-const AGENT_REGISTRATION_FEE = 25;
+const PAYSTACK_PUBLIC_KEY = "pk_test_123d132d98faf5a7cf93747861caaffc33d7f840";
+
+// Extend Window to include PaystackPop injected by the inline script
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency: string;
+        ref: string;
+        callback: (response: { reference: string }) => void;
+        onClose: () => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
 
 function PaymentForm() {
   const searchParams = useSearchParams();
@@ -13,41 +30,58 @@ function PaymentForm() {
   const emailFromQuery = searchParams.get("email") ?? "";
 
   const [email, setEmail] = useState(emailFromQuery);
-  const [cardName, setCardName] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
-  const [cvv, setCvv] = useState("");
+  const [initializing, setInitializing] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [agentCode, setAgentCode] = useState("");
+  const [ngnAmount, setNgnAmount] = useState<number | null>(null);
 
-  function formatCardNumber(val: string) {
-    return val
-      .replace(/\D/g, "")
-      .slice(0, 16)
-      .replace(/(.{4})/g, "$1 ")
-      .trim();
-  }
+  // Load Paystack inline script once
+  const scriptLoaded = useRef(false);
+  useEffect(() => {
+    if (scriptLoaded.current) return;
+    scriptLoaded.current = true;
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
 
-  function formatExpiry(val: string) {
-    const digits = val.replace(/\D/g, "").slice(0, 4);
-    if (digits.length > 2) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-    return digits;
+  async function activateAccount(reference: string, token: string) {
+    setProcessing(true);
+    setError("");
+    try {
+      const res = await fetch(`${API_BASE}/agent-applications/complete-payment/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          payment_token: token,
+          paystack_reference: reference,
+        }),
+      });
+      const data = (await res.json()) as { agent_code?: string; detail?: string };
+      if (!res.ok) {
+        setError(data.detail ?? "Activation failed. Please contact support.");
+        return;
+      }
+      setAgentCode(data.agent_code ?? "");
+      setSuccess(true);
+    } catch {
+      setError("Network error during activation. Please contact support.");
+    } finally {
+      setProcessing(false);
+    }
   }
 
   async function handlePay(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    setProcessing(true);
-
-    // Simulate a brief payment processing delay, then call the backend to activate the account.
-    // In production you would integrate a real payment gateway (Stripe, PayStack, etc.) and pass
-    // a confirmed payment_intent id.  For now the backend trusts the frontend confirmation.
-    await new Promise((r) => setTimeout(r, 1500));
+    setInitializing(true);
 
     try {
-      // First fetch the application to get the payment_token
+      // Get application status to obtain payment_token
       const statusRes = await fetch(
         `${API_BASE}/agent-applications/status/?email=${encodeURIComponent(email.trim())}`,
       );
@@ -61,42 +95,62 @@ function PaymentForm() {
         setError(statusData.detail ?? "Could not find your application.");
         return;
       }
-
       if (statusData.status !== "approved") {
         setError("Your application is not yet approved for payment.");
         return;
       }
-
       if (!statusData.payment_token) {
         setError("Payment token not available. Please contact support.");
         return;
       }
 
-      const activateRes = await fetch(`${API_BASE}/agent-applications/complete-payment/`, {
+      const token = statusData.payment_token;
+
+      // Initialize Paystack transaction on the backend (converts $25 â†’ NGN kobo)
+      const initRes = await fetch(`${API_BASE}/agent-applications/initialize-payment/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          payment_token: statusData.payment_token,
-        }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), payment_token: token }),
       });
-
-      const activateData = (await activateRes.json()) as {
-        agent_code?: string;
+      const initData = (await initRes.json()) as {
+        reference?: string;
+        access_code?: string;
+        amount_kobo?: number;
+        ngn_rate?: number;
         detail?: string;
       };
 
-      if (!activateRes.ok) {
-        setError(activateData.detail ?? "Activation failed. Please try again.");
+      if (!initRes.ok) {
+        setError(initData.detail ?? "Could not initialize payment.");
         return;
       }
 
-      setAgentCode(activateData.agent_code ?? "");
-      setSuccess(true);
+      const { reference, amount_kobo } = initData;
+      setNgnAmount(amount_kobo ? amount_kobo / 100 : null);
+
+      if (!window.PaystackPop) {
+        setError("Paystack script has not loaded yet. Please wait a moment and try again.");
+        return;
+      }
+
+      const handler = window.PaystackPop.setup({
+        key: PAYSTACK_PUBLIC_KEY,
+        email: email.trim().toLowerCase(),
+        amount: amount_kobo!,
+        currency: "NGN",
+        ref: reference!,
+        callback(response) {
+          void activateAccount(response.reference, token);
+        },
+        onClose() {
+          setError("Payment cancelled. Try again when ready.");
+        },
+      });
+      handler.openIframe();
     } catch {
       setError("Network error. Please try again.");
     } finally {
-      setProcessing(false);
+      setInitializing(false);
     }
   }
 
@@ -116,7 +170,7 @@ function PaymentForm() {
               Your Agent Code
             </p>
             <p className="text-2xl font-bold text-accent tracking-widest">{agentCode}</p>
-            <p className="text-xs text-muted mt-1">Keep this safe — you'll use it to log in.</p>
+            <p className="text-xs text-muted mt-1">Keep this safe â€” you'll use it to log in.</p>
           </div>
         )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -137,7 +191,10 @@ function PaymentForm() {
       <div className="bg-beige border border-beige-dark/20 px-5 py-4 flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-muted">Registration Fee</p>
-          <p className="text-2xl font-bold text-accent">${AGENT_REGISTRATION_FEE}.00</p>
+          <p className="text-2xl font-bold text-accent">$25.00</p>
+          {ngnAmount !== null && (
+            <p className="text-xs text-muted mt-0.5">â‰ˆ â‚¦{ngnAmount.toLocaleString()} at today's rate</p>
+          )}
         </div>
         <FeatherIcon icon="shield" size={28} className="text-accent opacity-40" />
       </div>
@@ -163,93 +220,27 @@ function PaymentForm() {
         />
       </div>
 
-      <div className="border-t border-beige-dark/20 pt-5">
-        <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-4">
-          Card Details
-        </p>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-accent mb-1.5">Name on Card</label>
-            <input
-              type="text"
-              required
-              value={cardName}
-              onChange={(e) => setCardName(e.target.value)}
-              placeholder="Full name as on card"
-              className="w-full border border-beige-dark/40 px-4 py-3 text-sm focus:outline-none focus:border-accent"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-accent mb-1.5">Card Number</label>
-            <div className="relative">
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={cardNumber}
-                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                placeholder="0000 0000 0000 0000"
-                maxLength={19}
-                className="w-full border border-beige-dark/40 px-4 py-3 pr-12 text-sm focus:outline-none focus:border-accent"
-              />
-              <FeatherIcon icon="credit-card" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-muted" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-accent mb-1.5">Expiry Date</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={expiry}
-                onChange={(e) => setExpiry(formatExpiry(e.target.value))}
-                placeholder="MM/YY"
-                maxLength={5}
-                className="w-full border border-beige-dark/40 px-4 py-3 text-sm focus:outline-none focus:border-accent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-accent mb-1.5">CVV</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                required
-                value={cvv}
-                onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                placeholder="•••"
-                maxLength={4}
-                className="w-full border border-beige-dark/40 px-4 py-3 text-sm focus:outline-none focus:border-accent"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
       <button
         type="submit"
-        disabled={processing}
+        disabled={initializing || processing}
         className="w-full bg-accent text-white py-3.5 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-accent-light transition-colors disabled:opacity-60"
       >
-        {processing ? (
+        {initializing || processing ? (
           <>
             <FeatherIcon icon="loader" size={16} className="animate-spin" />
-            Processing…
+            {initializing ? "Preparing paymentâ€¦" : "Verifying paymentâ€¦"}
           </>
         ) : (
           <>
             <FeatherIcon icon="lock" size={16} />
-            Pay ${AGENT_REGISTRATION_FEE}.00 Securely
+            Pay $25.00 via Paystack
           </>
         )}
       </button>
 
       <p className="text-xs text-muted text-center flex items-center justify-center gap-1.5">
         <FeatherIcon icon="lock" size={12} />
-        Payments are encrypted and secure
+        Secured by Paystack â€” â‚¦ equivalent charged at live exchange rate
       </p>
     </form>
   );
