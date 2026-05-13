@@ -305,6 +305,20 @@ export default function AgentPortalPage() {
               {loggingIn ? "Signing in..." : "Sign In"}
             </button>
           </form>
+          <div className="mt-6 border-t border-beige-dark/20 pt-5">
+            <p className="text-xs text-muted text-center">
+              Want to join our team?{" "}
+              <a href="/become-an-agent" className="text-accent underline font-medium">
+                Apply to become an agent
+              </a>
+            </p>
+            <p className="text-xs text-muted text-center mt-1.5">
+              Already applied?{" "}
+              <a href="/become-an-agent/status" className="text-accent underline font-medium">
+                Check your application status
+              </a>
+            </p>
+          </div>
         </div>
       </section>
     );

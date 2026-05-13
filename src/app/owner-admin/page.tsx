@@ -6,7 +6,7 @@ import FeatherIcon from "feather-icons-react";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api";
 const OWNER_CODE_STORAGE_KEY = "fresh-fields-owner-admin-code";
 
-type AdminSection = "overview" | "properties" | "partialHomes" | "agents" | "leads";
+type AdminSection = "overview" | "properties" | "partialHomes" | "agents" | "leads" | "agentApplications";
 type PropertyType = "house" | "apartment" | "condo" | "townhouse";
 type PropertyStatus = "for-sale" | "pending" | "sold";
 type LeadStatus = "new" | "read" | "replied";
@@ -89,6 +89,17 @@ interface CounterPayRequestItem {
   email: string;
   status: CounterRequestStatus;
   notes: string;
+  created_at: string;
+}
+
+interface AgentApplicationItem {
+  id: number;
+  full_name: string;
+  country: string;
+  email: string;
+  phone: string;
+  status: "pending" | "approved" | "rejected" | "paid";
+  rejection_reason: string;
   created_at: string;
 }
 
@@ -351,6 +362,9 @@ export default function OwnerAdminPage() {
   const [contactMessages, setContactMessages] = useState<ContactMessageItem[]>([]);
   const [counterRequests, setCounterRequests] = useState<CounterPayRequestItem[]>([]);
   const [chatInquiries, setChatInquiries] = useState<ChatInquiryItem[]>([]);
+  const [agentApplications, setAgentApplications] = useState<AgentApplicationItem[]>([]);
+  const [appDeciding, setAppDeciding] = useState<number | null>(null);
+  const [appRejectionReason, setAppRejectionReason] = useState<Record<number, string>>({});
 
   const [uploadingPropMain, setUploadingPropMain] = useState(false);
   const [uploadingPropGallery, setUploadingPropGallery] = useState(false);
@@ -385,7 +399,7 @@ export default function OwnerAdminPage() {
     setAccessError("");
     setMessage("");
     try {
-      const [agentsData, propertiesData, partialHomesData, contactsData, counterData, chatData] =
+      const [agentsData, propertiesData, partialHomesData, contactsData, counterData, chatData, appsData] =
         await Promise.all([
           apiRequest<AgentItem[]>("/agents/", {}, code),
           apiRequest<PropertyItem[]>("/properties/", {}, code),
@@ -393,6 +407,7 @@ export default function OwnerAdminPage() {
           apiRequest<ContactMessageItem[]>("/contact-messages/", {}, code),
           apiRequest<CounterPayRequestItem[]>("/counter-pay-requests/", {}, code),
           apiRequest<ChatInquiryItem[]>("/chat-inquiries/", {}, code),
+          apiRequest<AgentApplicationItem[]>("/agent-applications/list/", {}, code),
         ]);
 
       setAgents(agentsData);
@@ -401,6 +416,7 @@ export default function OwnerAdminPage() {
       setContactMessages(contactsData);
       setCounterRequests(counterData);
       setChatInquiries(chatData);
+      setAgentApplications(appsData);
 
       if (agentsData.length > 0 && !selectedAgentId) {
         setSelectedAgentId(agentsData[0].id);
@@ -805,7 +821,7 @@ export default function OwnerAdminPage() {
         {accessError ? <p className="text-sm text-red-600">{accessError}</p> : null}
         {message ? <p className="text-sm text-green-700">{message}</p> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           {[
             { label: "Agents", value: agents.length, icon: "users" },
             { label: "Properties", value: properties.length, icon: "home" },
@@ -814,6 +830,11 @@ export default function OwnerAdminPage() {
               label: "Open Leads",
               value: contactMessages.length + counterRequests.length + chatInquiries.length,
               icon: "inbox",
+            },
+            {
+              label: "Agent Applications",
+              value: agentApplications.filter((a) => a.status === "pending").length,
+              icon: "briefcase",
             },
           ].map((card) => (
             <div key={card.label} className="border border-beige-dark/30 bg-white p-5 shadow-sm">
@@ -833,6 +854,7 @@ export default function OwnerAdminPage() {
             ["partialHomes", "Partial Homes"],
             ["agents", "Agents"],
             ["leads", "Leads"],
+            ["agentApplications", "Agent Applications"],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -1496,6 +1518,133 @@ export default function OwnerAdminPage() {
                 ))}
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {section === "agentApplications" ? (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-accent">Agent Applications</h2>
+              <span className="bg-beige text-accent text-xs font-semibold px-3 py-1">
+                {agentApplications.filter((a) => a.status === "pending").length} pending
+              </span>
+            </div>
+
+            {agentApplications.length === 0 ? (
+              <p className="text-sm text-muted">No applications yet.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {agentApplications.map((app) => (
+                  <div key={app.id} className="border border-beige-dark/30 bg-white p-5 shadow-sm">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="font-semibold text-accent">{app.full_name}</p>
+                        <p className="text-xs text-muted">{app.country}</p>
+                      </div>
+                      <span
+                        className={`text-xs font-semibold px-2 py-1 ${
+                          app.status === "pending"
+                            ? "bg-amber-100 text-amber-700"
+                            : app.status === "approved"
+                              ? "bg-green-100 text-green-700"
+                              : app.status === "paid"
+                                ? "bg-accent/10 text-accent"
+                                : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {app.status === "paid" ? "Activated" : app.status.charAt(0).toUpperCase() + app.status.slice(1)}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-muted mb-1">
+                      <FeatherIcon icon="mail" size={12} className="inline mr-1" />
+                      {app.email}
+                    </p>
+                    <p className="text-xs text-muted mb-4">
+                      <FeatherIcon icon="phone" size={12} className="inline mr-1" />
+                      {app.phone}
+                    </p>
+                    <p className="text-xs text-muted mb-4">
+                      Applied {new Date(app.created_at).toLocaleDateString()}
+                    </p>
+
+                    {app.status === "pending" && (
+                      <div className="space-y-3">
+                        <textarea
+                          rows={2}
+                          placeholder="Rejection reason (optional)"
+                          value={appRejectionReason[app.id] ?? ""}
+                          onChange={(e) =>
+                            setAppRejectionReason((prev) => ({ ...prev, [app.id]: e.target.value }))
+                          }
+                          className="w-full resize-none border border-beige-dark/40 px-3 py-2 text-xs focus:border-accent focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            disabled={appDeciding === app.id}
+                            onClick={async () => {
+                              setAppDeciding(app.id);
+                              try {
+                                const updated = await apiRequest<AgentApplicationItem>(
+                                  `/agent-applications/${app.id}/decide/`,
+                                  { method: "POST", body: JSON.stringify({ status: "approved" }) },
+                                  ownerCode,
+                                );
+                                setAgentApplications((prev) =>
+                                  prev.map((a) => (a.id === app.id ? updated : a))
+                                );
+                              } catch (err) {
+                                setMessage(err instanceof Error ? err.message : "Failed to approve.");
+                              } finally {
+                                setAppDeciding(null);
+                              }
+                            }}
+                            className="flex-1 bg-green-600 text-white py-2 text-xs font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                          >
+                            {appDeciding === app.id ? "…" : "Approve"}
+                          </button>
+                          <button
+                            disabled={appDeciding === app.id}
+                            onClick={async () => {
+                              setAppDeciding(app.id);
+                              try {
+                                const updated = await apiRequest<AgentApplicationItem>(
+                                  `/agent-applications/${app.id}/decide/`,
+                                  {
+                                    method: "POST",
+                                    body: JSON.stringify({
+                                      status: "rejected",
+                                      rejection_reason: appRejectionReason[app.id] ?? "",
+                                    }),
+                                  },
+                                  ownerCode,
+                                );
+                                setAgentApplications((prev) =>
+                                  prev.map((a) => (a.id === app.id ? updated : a))
+                                );
+                              } catch (err) {
+                                setMessage(err instanceof Error ? err.message : "Failed to reject.");
+                              } finally {
+                                setAppDeciding(null);
+                              }
+                            }}
+                            className="flex-1 bg-red-600 text-white py-2 text-xs font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                          >
+                            {appDeciding === app.id ? "…" : "Reject"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {app.status === "rejected" && app.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-2">
+                        <strong>Reason:</strong> {app.rejection_reason}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : null}
       </div>

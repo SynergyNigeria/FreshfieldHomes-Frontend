@@ -36,6 +36,7 @@ export default function Footer() {
                 { href: "/contact", label: "Contact" },
                 { href: "/chat", label: "Live Chat" },
                 { href: "/agent-portal", label: "Agent Login" },
+                { href: "/become-an-agent", label: "Register as Agent" },
               ].map((link) => (
                 <li key={link.href}>
                   <Link
