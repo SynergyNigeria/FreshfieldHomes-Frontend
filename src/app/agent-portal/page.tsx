@@ -18,7 +18,7 @@ function normalizeAgentCode(value: string): string {
   return `${letters}-${digits}`;
 }
 
-type Tab = "listings" | "messages";
+type Tab = "listings" | "messages" | "submit-listing";
 
 interface AgentInfo {
   id: string;
@@ -41,7 +41,25 @@ interface PropertyItem {
   image: string;
   type: string;
   status: string;
+  approval_status: string;
   yearBuilt: number;
+}
+
+interface SubmitListingForm {
+  title: string;
+  address: string;
+  city: string;
+  state: string;
+  price: string;
+  bedrooms: string;
+  bathrooms: string;
+  sqft: string;
+  year_built: string;
+  property_type: string;
+  description: string;
+  image: string;
+  imageUrls: string;
+  features: string;
 }
 
 interface ContactItem {
@@ -99,6 +117,17 @@ export default function AgentPortalPage() {
 
   const [loadingData, setLoadingData] = useState(false);
   const [dataError, setDataError] = useState("");
+
+  const blankForm: SubmitListingForm = {
+    title: "", address: "", city: "", state: "", price: "",
+    bedrooms: "", bathrooms: "", sqft: "", year_built: "",
+    property_type: "apartment", description: "", image: "",
+    imageUrls: "", features: "",
+  };
+  const [submitForm, setSubmitForm] = useState<SubmitListingForm>(blankForm);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
 
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -187,7 +216,7 @@ export default function AgentPortalPage() {
     setDataError("");
     try {
       const [props, msgs, liveThreads] = await Promise.all([
-        agentFetch<PropertyItem[]>("/agent-portal/properties/", code),
+        agentFetch<PropertyItem[]>("/agent-portal/my-listings/", code),
         agentFetch<{ contacts: ContactItem[]; chats: unknown[] }>("/agent-portal/messages/", code),
         agentFetch<LiveChatThread[]>("/agent-portal/chat-threads/", code),
       ]);
@@ -233,6 +262,40 @@ export default function AgentPortalPage() {
     setThreadMessages([]);
     setReplyText("");
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+  }
+
+  async function handleSubmitListing(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitError("");
+    setSubmitSuccess("");
+    setSubmitLoading(true);
+    try {
+      const body = {
+        ...submitForm,
+        imageUrls: submitForm.imageUrls
+          ? submitForm.imageUrls.split("\n").map((s) => s.trim()).filter(Boolean)
+          : [],
+        features: submitForm.features
+          ? submitForm.features.split("\n").map((s) => s.trim()).filter(Boolean)
+          : [],
+      };
+      const res = await fetch(`${API_BASE}/agent-portal/submit-listing/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Agent-Code": agentCode },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+        setSubmitError((err.detail as string) ?? "Submission failed.");
+        return;
+      }
+      setSubmitSuccess("Listing submitted! It will appear publicly once approved by admin.");
+      setSubmitForm(blankForm);
+    } catch {
+      setSubmitError("Could not reach server.");
+    } finally {
+      setSubmitLoading(false);
+    }
   }
 
   async function sendAgentMessage() {
@@ -384,8 +447,8 @@ export default function AgentPortalPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2">
-          {(["listings", "messages"] as Tab[]).map((t) => (
+        <div className="flex flex-wrap gap-2">
+          {(["listings", "messages", "submit-listing"] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -395,7 +458,7 @@ export default function AgentPortalPage() {
                   : "border border-beige-dark/40 bg-white text-accent hover:bg-beige"
               }`}
             >
-              {t === "listings" ? "My Listings" : "Messages & Live Chat"}
+              {t === "listings" ? "My Listings" : t === "messages" ? "Messages & Live Chat" : "Submit Listing"}
             </button>
           ))}
         </div>
@@ -429,7 +492,24 @@ export default function AgentPortalPage() {
                     />
                   </div>
                   <div className="p-4">
-                    <p className="font-semibold text-accent">{p.title}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-semibold text-accent">{p.title}</p>
+                      {p.approval_status === "pending_approval" && (
+                        <span className="shrink-0 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700">
+                          Pending review
+                        </span>
+                      )}
+                      {p.approval_status === "approved" && (
+                        <span className="shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                          Approved
+                        </span>
+                      )}
+                      {p.approval_status === "rejected" && (
+                        <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                          Rejected
+                        </span>
+                      )}
+                    </div>
                     <p className="mt-1 text-sm text-muted">
                       {p.address}, {p.city}, {p.state}
                     </p>
@@ -448,6 +528,107 @@ export default function AgentPortalPage() {
               ))}
             </div>
           )
+        ) : null}
+
+        {/* Submit listing tab */}
+        {tab === "submit-listing" && !loadingData ? (
+          <div className="border border-beige-dark/30 bg-white p-6 shadow-sm">
+            <h2 className="mb-1 text-lg font-bold text-accent">Submit a New Listing</h2>
+            <p className="mb-6 text-sm text-muted">Your listing will be reviewed by admin before appearing publicly.</p>
+            {submitSuccess ? (
+              <div className="mb-4 rounded border border-green-200 bg-green-50 p-4 text-sm text-green-800">{submitSuccess}</div>
+            ) : null}
+            {submitError ? (
+              <div className="mb-4 rounded border border-red-200 bg-red-50 p-4 text-sm text-red-700">{submitError}</div>
+            ) : null}
+            <form onSubmit={(e) => { void handleSubmitListing(e); }} className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-accent">Property Title *</label>
+                <input required value={submitForm.title} onChange={(e) => setSubmitForm(f => ({...f, title: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-accent">Address *</label>
+                <input required value={submitForm.address} onChange={(e) => setSubmitForm(f => ({...f, address: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">City *</label>
+                <input required value={submitForm.city} onChange={(e) => setSubmitForm(f => ({...f, city: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">State *</label>
+                <input required value={submitForm.state} onChange={(e) => setSubmitForm(f => ({...f, state: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Price (NGN) *</label>
+                <input required type="number" min="0" value={submitForm.price} onChange={(e) => setSubmitForm(f => ({...f, price: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Property Type *</label>
+                <select required value={submitForm.property_type} onChange={(e) => setSubmitForm(f => ({...f, property_type: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none bg-white">
+                  <option value="apartment">Apartment</option>
+                  <option value="house">House</option>
+                  <option value="land">Land</option>
+                  <option value="commercial">Commercial</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Bedrooms *</label>
+                <input required type="number" min="0" value={submitForm.bedrooms} onChange={(e) => setSubmitForm(f => ({...f, bedrooms: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Bathrooms *</label>
+                <input required type="number" min="0" value={submitForm.bathrooms} onChange={(e) => setSubmitForm(f => ({...f, bathrooms: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Sqft *</label>
+                <input required type="number" min="0" value={submitForm.sqft} onChange={(e) => setSubmitForm(f => ({...f, sqft: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Year Built *</label>
+                <input required type="number" min="1900" max="2100" value={submitForm.year_built} onChange={(e) => setSubmitForm(f => ({...f, year_built: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-accent">Main Image URL *</label>
+                <input required type="url" value={submitForm.image} onChange={(e) => setSubmitForm(f => ({...f, image: e.target.value}))}
+                  placeholder="https://res.cloudinary.com/..."
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none" />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-medium text-accent">Description *</label>
+                <textarea required rows={4} value={submitForm.description} onChange={(e) => setSubmitForm(f => ({...f, description: e.target.value}))}
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none resize-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Extra Image URLs <span className="text-muted font-normal">(one per line)</span></label>
+                <textarea rows={3} value={submitForm.imageUrls} onChange={(e) => setSubmitForm(f => ({...f, imageUrls: e.target.value}))}
+                  placeholder="https://...\nhttps://..."
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none resize-none" />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-accent">Features <span className="text-muted font-normal">(one per line)</span></label>
+                <textarea rows={3} value={submitForm.features} onChange={(e) => setSubmitForm(f => ({...f, features: e.target.value}))}
+                  placeholder="Swimming Pool\nGated Community"
+                  className="w-full border border-beige-dark/50 px-4 py-2.5 text-sm focus:border-accent focus:outline-none resize-none" />
+              </div>
+              <div className="sm:col-span-2">
+                <button type="submit" disabled={submitLoading}
+                  className="inline-flex items-center gap-2 bg-accent px-6 py-3 text-sm font-semibold text-white hover:bg-accent-light disabled:opacity-60">
+                  <FeatherIcon icon="upload" size={16} />
+                  {submitLoading ? "Submitting..." : "Submit for Review"}
+                </button>
+              </div>
+            </form>
+          </div>
         ) : null}
 
         {/* Messages tab */}

@@ -1,4 +1,4 @@
-globalThis.openNextDebug = false;globalThis.openNextVersion = "3.9.1";
+globalThis.openNextDebug = false;globalThis.openNextVersion = "3.10.4";globalThis.nextVersion = "16.2.4";
 
 // node_modules/@opennextjs/aws/dist/utils/error.js
 var IgnorableError = class extends Error {
@@ -108,9 +108,10 @@ var DOQueueHandler = class extends DurableObject {
   disableSQLite;
   constructor(ctx, env) {
     super(ctx, env);
-    this.service = env.WORKER_SELF_REFERENCE;
-    if (!this.service)
+    if (!env.WORKER_SELF_REFERENCE) {
       throw new IgnorableError("No service binding for cache revalidation worker");
+    }
+    this.service = env.WORKER_SELF_REFERENCE;
     this.sql = ctx.storage.sql;
     this.maxRevalidations = env.NEXT_CACHE_DO_QUEUE_MAX_REVALIDATION ? parseInt(env.NEXT_CACHE_DO_QUEUE_MAX_REVALIDATION) : DEFAULT_MAX_REVALIDATION;
     this.revalidationTimeout = env.NEXT_CACHE_DO_QUEUE_REVALIDATION_TIMEOUT_MS ? parseInt(env.NEXT_CACHE_DO_QUEUE_REVALIDATION_TIMEOUT_MS) : DEFAULT_REVALIDATION_TIMEOUT_MS;
@@ -179,7 +180,7 @@ var DOQueueHandler = class extends DurableObject {
           "INSERT OR REPLACE INTO sync (id, lastSuccess, buildId) VALUES (?, unixepoch(), ?)",
           // We cannot use the deduplication id because it's not unique per route - every time a route is revalidated, the deduplication id is different.
           `${host}${url}`,
-          "2_4odxUkOnj6E7BvdBOR8"
+          "k6qHyMuvk5EXXHE9lp5Ba"
         );
       }
       this.routeInFailedState.delete(msg.MessageDeduplicationId);
@@ -231,7 +232,7 @@ var DOQueueHandler = class extends DurableObject {
     }
     this.routeInFailedState.set(msg.MessageDeduplicationId, updatedFailedState);
     if (!this.disableSQLite) {
-      this.sql.exec("INSERT OR REPLACE INTO failed_state (id, data, buildId) VALUES (?, ?, ?)", msg.MessageDeduplicationId, JSON.stringify(updatedFailedState), "2_4odxUkOnj6E7BvdBOR8");
+      this.sql.exec("INSERT OR REPLACE INTO failed_state (id, data, buildId) VALUES (?, ?, ?)", msg.MessageDeduplicationId, JSON.stringify(updatedFailedState), "k6qHyMuvk5EXXHE9lp5Ba");
     }
     await this.addAlarm();
   }
@@ -255,8 +256,8 @@ var DOQueueHandler = class extends DurableObject {
       return;
     this.sql.exec("CREATE TABLE IF NOT EXISTS failed_state (id TEXT PRIMARY KEY, data TEXT, buildId TEXT)");
     this.sql.exec("CREATE TABLE IF NOT EXISTS sync (id TEXT PRIMARY KEY, lastSuccess INTEGER, buildId TEXT)");
-    this.sql.exec("DELETE FROM failed_state WHERE buildId != ?", "2_4odxUkOnj6E7BvdBOR8");
-    this.sql.exec("DELETE FROM sync WHERE buildId != ?", "2_4odxUkOnj6E7BvdBOR8");
+    this.sql.exec("DELETE FROM failed_state WHERE buildId != ?", "k6qHyMuvk5EXXHE9lp5Ba");
+    this.sql.exec("DELETE FROM sync WHERE buildId != ?", "k6qHyMuvk5EXXHE9lp5Ba");
     const failedStateCursor = this.sql.exec("SELECT * FROM failed_state");
     for (const row of failedStateCursor) {
       this.routeInFailedState.set(row.id, JSON.parse(row.data));

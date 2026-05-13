@@ -6,7 +6,7 @@ import FeatherIcon from "feather-icons-react";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000/api";
 const OWNER_CODE_STORAGE_KEY = "fresh-fields-owner-admin-code";
 
-type AdminSection = "overview" | "properties" | "partialHomes" | "agents" | "leads" | "agentApplications";
+type AdminSection = "overview" | "properties" | "partialHomes" | "agents" | "leads" | "agentApplications" | "pendingListings";
 type PropertyType = "house" | "apartment" | "condo" | "townhouse";
 type PropertyStatus = "for-sale" | "pending" | "sold";
 type LeadStatus = "new" | "read" | "replied";
@@ -100,6 +100,18 @@ interface AgentApplicationItem {
   phone: string;
   status: "pending" | "approved" | "rejected" | "paid";
   rejection_reason: string;
+  created_at: string;
+}
+
+interface PendingListingItem {
+  id: string;
+  title: string;
+  city: string;
+  state: string;
+  price: string;
+  image: string;
+  approval_status: string;
+  agent: string | null;
   created_at: string;
 }
 
@@ -365,6 +377,8 @@ export default function OwnerAdminPage() {
   const [agentApplications, setAgentApplications] = useState<AgentApplicationItem[]>([]);
   const [appDeciding, setAppDeciding] = useState<number | null>(null);
   const [appRejectionReason, setAppRejectionReason] = useState<Record<number, string>>({});
+  const [pendingListings, setPendingListings] = useState<PendingListingItem[]>([]);
+  const [listingDeciding, setListingDeciding] = useState<string | null>(null);
 
   const [uploadingPropMain, setUploadingPropMain] = useState(false);
   const [uploadingPropGallery, setUploadingPropGallery] = useState(false);
@@ -399,7 +413,7 @@ export default function OwnerAdminPage() {
     setAccessError("");
     setMessage("");
     try {
-      const [agentsData, propertiesData, partialHomesData, contactsData, counterData, chatData, appsData] =
+      const [agentsData, propertiesData, partialHomesData, contactsData, counterData, chatData, appsData, pendingData] =
         await Promise.all([
           apiRequest<AgentItem[]>("/agents/", {}, code),
           apiRequest<PropertyItem[]>("/properties/", {}, code),
@@ -408,6 +422,7 @@ export default function OwnerAdminPage() {
           apiRequest<CounterPayRequestItem[]>("/counter-pay-requests/", {}, code),
           apiRequest<ChatInquiryItem[]>("/chat-inquiries/", {}, code),
           apiRequest<AgentApplicationItem[]>("/agent-applications/list/", {}, code),
+          apiRequest<PendingListingItem[]>("/admin/listings/pending/", {}, code),
         ]);
 
       setAgents(agentsData);
@@ -417,6 +432,7 @@ export default function OwnerAdminPage() {
       setCounterRequests(counterData);
       setChatInquiries(chatData);
       setAgentApplications(appsData);
+      setPendingListings(pendingData);
 
       if (agentsData.length > 0 && !selectedAgentId) {
         setSelectedAgentId(agentsData[0].id);
@@ -821,7 +837,7 @@ export default function OwnerAdminPage() {
         {accessError ? <p className="text-sm text-red-600">{accessError}</p> : null}
         {message ? <p className="text-sm text-green-700">{message}</p> : null}
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
           {[
             { label: "Agents", value: agents.length, icon: "users" },
             { label: "Properties", value: properties.length, icon: "home" },
@@ -835,6 +851,11 @@ export default function OwnerAdminPage() {
               label: "Agent Applications",
               value: agentApplications.filter((a) => a.status === "pending").length,
               icon: "briefcase",
+            },
+            {
+              label: "Pending Listings",
+              value: pendingListings.length,
+              icon: "clock",
             },
           ].map((card) => (
             <div key={card.label} className="border border-beige-dark/30 bg-white p-5 shadow-sm">
@@ -855,6 +876,7 @@ export default function OwnerAdminPage() {
             ["agents", "Agents"],
             ["leads", "Leads"],
             ["agentApplications", "Agent Applications"],
+            ["pendingListings", "Pending Listings"],
           ].map(([value, label]) => (
             <button
               key={value}
@@ -1641,6 +1663,71 @@ export default function OwnerAdminPage() {
                         <strong>Reason:</strong> {app.rejection_reason}
                       </p>
                     )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {section === "pendingListings" ? (
+          <div className="border border-beige-dark/30 bg-white p-6 shadow-sm">
+            <h2 className="mb-1 text-xl font-semibold text-accent">Pending Listings</h2>
+            <p className="mb-6 text-sm text-muted">Agent-submitted listings awaiting your review.</p>
+            {pendingListings.length === 0 ? (
+              <p className="text-sm text-muted">No listings pending approval.</p>
+            ) : (
+              <div className="space-y-4">
+                {pendingListings.map((p) => (
+                  <div key={p.id} className="flex items-start gap-4 border border-beige-dark/20 p-4">
+                    {p.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.image} alt={p.title} className="h-20 w-28 shrink-0 object-cover" />
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-accent truncate">{p.title}</p>
+                      <p className="text-xs text-muted">{p.city}, {p.state}</p>
+                      {p.agent ? <p className="text-xs text-muted">Agent: {p.agent}</p> : null}
+                      <p className="text-xs text-muted">Submitted: {new Date(p.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        disabled={listingDeciding === p.id}
+                        onClick={async () => {
+                          setListingDeciding(p.id);
+                          try {
+                            await apiRequest(`/admin/listings/${p.id}/decide/`, { method: "POST", body: JSON.stringify({ action: "approve" }) }, ownerCode);
+                            setPendingListings((prev) => prev.filter((x) => x.id !== p.id));
+                            setMessage("Listing approved.");
+                          } catch {
+                            setMessage("Failed to approve listing.");
+                          } finally {
+                            setListingDeciding(null);
+                          }
+                        }}
+                        className="bg-green-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-green-700 disabled:opacity-60 transition-colors"
+                      >
+                        {listingDeciding === p.id ? "..." : "Approve"}
+                      </button>
+                      <button
+                        disabled={listingDeciding === p.id}
+                        onClick={async () => {
+                          setListingDeciding(p.id);
+                          try {
+                            await apiRequest(`/admin/listings/${p.id}/decide/`, { method: "POST", body: JSON.stringify({ action: "reject" }) }, ownerCode);
+                            setPendingListings((prev) => prev.filter((x) => x.id !== p.id));
+                            setMessage("Listing rejected.");
+                          } catch {
+                            setMessage("Failed to reject listing.");
+                          } finally {
+                            setListingDeciding(null);
+                          }
+                        }}
+                        className="bg-red-600 text-white px-3 py-1.5 text-xs font-semibold hover:bg-red-700 disabled:opacity-60 transition-colors"
+                      >
+                        {listingDeciding === p.id ? "..." : "Reject"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

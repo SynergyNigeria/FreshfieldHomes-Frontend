@@ -109,13 +109,18 @@ var resolver = {
       type: "core",
       statusCode: response.status,
       headers: Object.fromEntries(response.headers.entries()),
-      // Workers and Node types differ.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      body: response.body || new ReadableStream(),
+      body: getResponseBody(method, response),
       isBase64Encoded: false
     };
   }
 };
+function getResponseBody(method, response) {
+  if (method === "HEAD") {
+    return null;
+  }
+  return response.body || new ReadableStream();
+}
 function isUserWorkerFirst(runWorkerFirst, pathname) {
   if (!Array.isArray(runWorkerFirst)) {
     return runWorkerFirst ?? false;
