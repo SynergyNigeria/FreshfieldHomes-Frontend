@@ -113,8 +113,6 @@ function PaymentForm() {
         body: JSON.stringify({ email: email.trim().toLowerCase(), payment_token: token }),
       });
       const initData = (await initRes.json()) as {
-        reference?: string;
-        access_code?: string;
         amount_kobo?: number;
         ngn_rate?: number;
         detail?: string;
@@ -125,7 +123,7 @@ function PaymentForm() {
         return;
       }
 
-      const { reference, amount_kobo } = initData;
+      const { amount_kobo } = initData;
       setNgnAmount(amount_kobo ? amount_kobo / 100 : null);
 
       if (!window.PaystackPop) {
@@ -138,7 +136,7 @@ function PaymentForm() {
         email: email.trim().toLowerCase(),
         amount: amount_kobo!,
         currency: "NGN",
-        ref: reference!,
+        ref: `freshfields-agent-${Date.now()}`,
         callback(response) {
           void activateAccount(response.reference, token);
         },
